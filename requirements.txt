@@ -1,3 +1,4 @@
 aksharamukha
 flask
 flask_cors
+unicodedataplus
