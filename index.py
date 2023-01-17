@@ -41,6 +41,8 @@ for locale_file in locale_files:
                 script = "Zyyy"
             if script == "Syrc":
                 script = "Syre"
+            if script == "Mymr":
+                script = "Burmese"
             if script not in wordlists[locale]:
                 wordlists[locale][script] = ([], [])
             wordlists[locale][script][0].append(form)
