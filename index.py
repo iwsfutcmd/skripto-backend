@@ -5,7 +5,7 @@ from aksharamukha import transliterate, GeneralMap
 from flask import Flask, request, jsonify
 from flask_cors import CORS
 
-locale_files = glob("data/*")
+locale_files = glob("data/wiktionary/*")
 locales = [Path(d).name for d in locale_files]
 wordlists = {}
 for locale_file in locale_files:
@@ -14,7 +14,11 @@ for locale_file in locale_files:
     with open(locale_file) as datafile:
         for line in datafile.readlines():
             if not line: continue
-            form, weight = line.strip().split("\t")
+            try:
+                form, weight = line.strip().split("\t")
+            except ValueError:
+                form = line.strip()
+                weight = 1
             forms.append(form)
             weights.append(int(weight))
     wordlists[Path(locale_file).name] = (forms, weights)
@@ -25,9 +29,13 @@ script_map = {
     "te": "Telugu",
     "ml": "Malayalam",
     "mr": "Devanagari",
-    "sa": "Latin",
+    "sa": "Devanagari",
     "si": "Sinhala",
     "th": "Thai",
+    "kn": "Kannada",
+    "or": "Oriya",
+    "gu": "Gujarati",
+    "bn": "Bengali",
 }
 app = Flask(__name__)
 CORS(app)
@@ -42,9 +50,9 @@ def serve_transl():
     else:
         return jsonify("")
 
-@app.route("/scripts/latin")
-def serve_latin_scripts():
-    return jsonify(GeneralMap.LatinScripts + list(GeneralMap.semiticISO.keys()))
+@app.route("/scripts/to")
+def serve_to_scripts():
+    return jsonify(GeneralMap.LatinScripts + GeneralMap.MainIndic + list(GeneralMap.semiticISO.keys()))
 
 @app.route("/locales")
 def serve_locales():
