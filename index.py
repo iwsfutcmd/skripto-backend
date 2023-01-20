@@ -5,6 +5,29 @@ from aksharamukha import transliterate, GeneralMap
 from flask import Flask, request, jsonify
 from flask_cors import CORS
 import unicodedataplus as unicodedata
+from functools import cache
+
+SCRIPT_THRESHOLD = 0.05
+
+CONJUNCT_PROPS = {
+    "Virama",
+    "Invisible_Stacker",
+    "Consonant_Dead",
+    "Consonant_With_Stacker",
+    "Consonant_Prefixed",
+    "Consonant_Preceding_Repha",
+    "Consonant_Initial_Postfixed",
+    "Consonant_Succeeding_Repha",
+    "Consonant_Subjoined",
+    "Consonant_Medial",
+    "Consonant_Final",
+    "Consonant_Head_Letter",
+    "Gemination_Mark",
+}
+
+INDEP_VOWEL_PROPS = {
+    "Vowel_Independent",
+}
 
 
 def get_script_of_word(word):
@@ -18,16 +41,16 @@ for locale_file in locale_files:
     locale = Path(locale_file).name
     wordlists[locale] = {}
     forms = []
-    weights = []
+    # weights = []
     with open(locale_file) as datafile:
         for line in datafile.readlines():
             if not line:
                 continue
-            try:
-                form, weight = line.strip().split("\t")
-            except ValueError:
-                form = line.strip()
-                weight = 1
+            # try:
+            #     form, weight = line.strip().split("\t")
+            # except ValueError:
+            form = line.strip()
+            # weight = 1
             scripts = get_script_of_word(form)
             if len(scripts) == 1:
                 script = scripts.pop()
@@ -43,22 +66,44 @@ for locale_file in locale_files:
                 script = "Syre"
             if script == "Mymr":
                 script = "Burmese"
+            if script == "Avst":
+                script = "Avestan"
             if script not in wordlists[locale]:
-                wordlists[locale][script] = ([], [])
-            wordlists[locale][script][0].append(form)
-            wordlists[locale][script][1].append(int(weight))
+                # wordlists[locale][script] = ([], [])
+                wordlists[locale][script] = []
+            wordlists[locale][script].append(form)
+            # wordlists[locale][script][0].append(form)
+            # wordlists[locale][script][1].append(int(weight))
 
 script_map = {}
 for locale in wordlists:
     script_map[locale] = []
     total_entries = 0
     for script in wordlists[locale]:
-        total_entries += len(wordlists[locale][script][0])
+        # total_entries += len(wordlists[locale][script][0])
+        total_entries += len(wordlists[locale][script])
     for script in wordlists[locale]:
-        if len(wordlists[locale][script][0]) / total_entries > 0.1:
+        # if len(wordlists[locale][script][0]) / total_entries > SCRIPT_THRESHOLD:
+        if len(wordlists[locale][script]) / total_entries > SCRIPT_THRESHOLD:
             script_map[locale].append(script)
 app = Flask(__name__)
 CORS(app)
+
+
+def filter_wordlist(wordlist, filter_set, negative=False):
+    output = []
+    for word in wordlist:
+        if negative:
+            if any(unicodedata.indic_syllabic_category(c) in filter_set for c in word):
+                continue
+            else:
+                output.append(word)
+        else:
+            if any(unicodedata.indic_syllabic_category(c) in filter_set for c in word):
+                output.append(word)
+    if not output:
+        return wordlist
+    return output
 
 
 @app.route("/", methods=["POST", "GET"])
@@ -102,17 +147,40 @@ def serve_wordlist():
     from_script = (
         script if request.json["from"] == "autodetect" else request.json["from"]
     )
-    randomized_wordlist = random.choices(
-        wordlists[lang][script][0], weights=wordlists[lang][script][1], k=500
-    )
-    form_translit = [
-        [
-            transliterate.process(script, from_script, form),
-            transliterate.process(script, to_script, form),
+    positive_filter = set()
+    negative_filter = set()
+    match request.json["withConjuncts"]:
+        case 0:
+            negative_filter.update(CONJUNCT_PROPS)
+        case 2:
+            positive_filter.update(CONJUNCT_PROPS)
+    match request.json["withIndepVowels"]:
+        case 0:
+            negative_filter.update(INDEP_VOWEL_PROPS)
+        case 2:
+            positive_filter.update(INDEP_VOWEL_PROPS)
+    wordlist = wordlists[lang][script]
+    # randomized_wordlist = random.choices(wordlist[0], wordlist[1], k=500)
+    randomized_wordlist = random.choices(wordlist, k=500)
+    if script == from_script:
+        from_wordlist = randomized_wordlist
+    else:
+        from_wordlist = [
+            transliterate.process(script, from_script, word)
+            for word in randomized_wordlist
         ]
-        for form in randomized_wordlist
+    if positive_filter:
+        from_wordlist = filter_wordlist(from_wordlist, positive_filter)
+    if negative_filter:
+        from_wordlist = filter_wordlist(from_wordlist, negative_filter, True)
+    output = [
+        [
+            word,
+            transliterate.process(from_script, to_script, word),
+        ]
+        for word in from_wordlist
     ]
-    return jsonify([from_script, to_script, form_translit])
+    return jsonify([from_script, to_script, output])
 
 
 if __name__ == "__main__":
