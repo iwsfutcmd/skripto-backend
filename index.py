@@ -149,16 +149,14 @@ def serve_wordlist():
     )
     positive_filter = set()
     negative_filter = set()
-    match request.json["withConjuncts"]:
-        case 0:
-            negative_filter.update(CONJUNCT_PROPS)
-        case 2:
-            positive_filter.update(CONJUNCT_PROPS)
-    match request.json["withIndepVowels"]:
-        case 0:
-            negative_filter.update(INDEP_VOWEL_PROPS)
-        case 2:
-            positive_filter.update(INDEP_VOWEL_PROPS)
+    if request.json["withConjuncts"] == 0:
+        negative_filter.update(CONJUNCT_PROPS)
+    elif request.json["withConjuncts"] == 2:
+        positive_filter.update(CONJUNCT_PROPS)
+    if request.json["withIndepVowels"] == 0:
+        negative_filter.update(INDEP_VOWEL_PROPS)
+    elif request.json["withIndepVowels"] == 2:
+        positive_filter.update(INDEP_VOWEL_PROPS)
     wordlist = wordlists[lang][script]
     # randomized_wordlist = random.choices(wordlist[0], wordlist[1], k=500)
     randomized_wordlist = random.choices(wordlist, k=500)
