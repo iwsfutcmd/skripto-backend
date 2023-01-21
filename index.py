@@ -90,6 +90,15 @@ app = Flask(__name__)
 CORS(app)
 
 
+def get_wordlist_direction(wordlist):
+    ltr = 0
+    rtl = 0
+    for word in wordlist:
+        ltr += sum([unicodedata.bidirectional(c) == "L" for c in word])
+        rtl += sum([unicodedata.bidirectional(c) in {"R", "A"} for c in word])
+    return "rtl" if rtl > ltr else "ltr"
+
+
 def filter_wordlist(wordlist, filter_set, negative=False):
     output = []
     for word in wordlist:
@@ -173,14 +182,14 @@ def serve_wordlist():
         from_wordlist = filter_wordlist(from_wordlist, positive_filter)
     if negative_filter:
         from_wordlist = filter_wordlist(from_wordlist, negative_filter, True)
-    output = [
-        [
-            word,
-            transliterate.process(from_script, to_script, word, nativize=False),
-        ]
+    to_wordlist = [
+        transliterate.process(from_script, to_script, word, nativize=False)
         for word in from_wordlist
     ]
-    return jsonify([from_script, to_script, output])
+    from_dir = get_wordlist_direction(from_wordlist)
+    to_dir = get_wordlist_direction(to_wordlist)
+    output = list(zip(from_wordlist, to_wordlist))
+    return jsonify([from_script, to_script, output, from_dir, to_dir])
 
 
 if __name__ == "__main__":
