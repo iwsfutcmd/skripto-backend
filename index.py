@@ -112,7 +112,9 @@ def serve_transl():
     to_script = request.json["to"]
     text = request.json["text"]
     if text:
-        return jsonify(transliterate.process(from_script, to_script, text))
+        return jsonify(
+            transliterate.process(from_script, to_script, text, nativize=False)
+        )
     else:
         return jsonify("")
 
@@ -164,7 +166,7 @@ def serve_wordlist():
         from_wordlist = randomized_wordlist
     else:
         from_wordlist = [
-            transliterate.process(script, from_script, word)
+            transliterate.process(script, from_script, word, nativize=False)
             for word in randomized_wordlist
         ]
     if positive_filter:
@@ -174,7 +176,7 @@ def serve_wordlist():
     output = [
         [
             word,
-            transliterate.process(from_script, to_script, word),
+            transliterate.process(from_script, to_script, word, nativize=False),
         ]
         for word in from_wordlist
     ]
