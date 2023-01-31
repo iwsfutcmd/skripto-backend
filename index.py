@@ -30,6 +30,37 @@ INDEP_VOWEL_PROPS = {
 }
 
 
+EXPERIMENTAL_LOCALES = {
+    "ae",
+    "aho",
+    "ar",
+    "bo",
+    "cjm",
+    "he",
+    "km",
+    "lo",
+    "mid",
+    "my",
+    "myz",
+    "sog",
+    "th",
+    "uga",
+}
+
+
+FONTS = {
+    "Balinese": ["Noto Sans Balinese", "Noto Serif Balinese"],
+    "ZanabazarSquare": ["Noto Sans Zanabazar Square"],
+    "Tirhuta": ["Noto Sans Tirhuta"],
+    "Lao": ["Noto Sans Lao", "Noto Sans Lao Looped", "Noto Serif Lao"],
+    "Lao2": ["Noto Sans Lao", "Noto Sans Lao Looped", "Noto Serif Lao"],
+    "LaoPali": ["Noto Sans Lao Looped", "Noto Sans Lao", "Noto Serif Lao"],
+    "Mahajani": ["Noto Sans Mahajani"],
+    "Siddham": ["Noto Sans Siddham"],
+    "Khudawadi": ["Noto Sans Khudawadi"],
+}
+
+
 def get_script_of_word(word):
     return {unicodedata.script(cp) for cp in word} - {"Common", "Inherited"}
 
@@ -188,8 +219,16 @@ def serve_wordlist():
     ]
     from_dir = get_wordlist_direction(from_wordlist)
     to_dir = get_wordlist_direction(to_wordlist)
+    from_fonts = FONTS.get(from_script, [])
+    to_fonts = FONTS.get(to_script, [])
     output = list(zip(from_wordlist, to_wordlist))
-    return jsonify([from_script, to_script, output, from_dir, to_dir])
+    return jsonify(
+        {
+            "from": {"script": from_script, "dir": from_dir, "fonts": from_fonts},
+            "to": {"script": to_script, "dir": to_dir, "fonts": to_fonts},
+            "wordlist": output,
+        }
+    )
 
 
 if __name__ == "__main__":
