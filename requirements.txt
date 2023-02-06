@@ -1,4 +1,4 @@
-aksharamukha
+pyicu
 flask
 flask_cors
 unicodedataplus

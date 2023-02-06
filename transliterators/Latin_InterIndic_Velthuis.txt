@@ -150,7 +150,7 @@ $endThing=[$danda$doubleDanda];
 # $x was originally called '§'; $z was '%'
 $x=[$virama$aa$ai$au$ii$i$uu$u$rrh$rh$lh$e$o$se$ce$so$co];
 $z=[bcdfghjklmnpqrstvwxyz];
-$consonants=[[$ka-$ha]$z[क-ह][ক-হ][ਕ-ਹ][ક-હ][କ-ହ][க-ஹ][క-హ][ಕ-ಹ][ക-ഹ]];
+$consonants=[[$ka-$ha]$z[क-ह][ক-হ][ਕ-ਹ][ક-હ][କ-ହ][க-ஹ][క-హ\u0C3C][ಕ-ಹ][ക-ഹ]];
 '.a' → $avagraha;
 '~m.m'→$chandrabindu$anusvara;
 '~m'→$chandrabindu;

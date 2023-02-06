@@ -1,12 +1,12 @@
 from glob import glob
 from pathlib import Path
 import random
-from aksharamukha import transliterate, GeneralMap
 from flask import Flask, request, jsonify
 from flask_cors import CORS
 import unicodedataplus as unicodedata
 from functools import cache
 import icu
+import re
 
 SCRIPT_THRESHOLD = 0.05
 
@@ -99,22 +99,26 @@ for locale in wordlists:
 app = Flask(__name__)
 CORS(app)
 
-with open("transliterators/InterIndic_Latin_Velthuis.txt") as file:
-    icu.Transliterator.registerInstance(
-        icu.Transliterator.createFromRules("InterIndic-Latin/Velthuis", file.read())
-    )
+transliterators = [
+    "InterIndic-Latin/Velthuis",
+    "Latin-InterIndic/Velthuis",
+    "Telugu-InterIndic",
+    "InterIndic-Telugu",
+    "Brahmi-InterIndic",
+]
 
-with open("transliterators/Latin_InterIndic_Velthuis.txt") as file:
-    icu.Transliterator.registerInstance(
-        icu.Transliterator.createFromRules("Latin-InterIndic/Velthuis", file.read())
-    )
+for transliterator_id in transliterators:
+    with open(f"transliterators/{re.sub(r'[-/]', '_', transliterator_id)}.txt") as file:
+        icu.Transliterator.registerInstance(
+            icu.Transliterator.createFromRules(transliterator_id, file.read())
+        )
 
 
 @cache
 def get_transliterator(from_script, to_script):
     if to_script == "Velthuis":
         return icu.Transliterator.createInstance(
-            f"{from_script}-InterIndic; InterIndic-Latin/Velthuis"
+            f"NFD; {from_script}-InterIndic; InterIndic-Latin/Velthuis"
         )
     elif from_script == "Velthuis":
         return icu.Transliterator.createInstance(
@@ -193,6 +197,7 @@ def serve_scripts():
             "Telu",
             "Thaa",
             "Thai",
+            "Brah",
             "Velthuis",
         ]
     )
