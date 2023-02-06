@@ -6,6 +6,7 @@ from flask import Flask, request, jsonify
 from flask_cors import CORS
 import unicodedataplus as unicodedata
 from functools import cache
+import icu
 
 SCRIPT_THRESHOLD = 0.05
 
@@ -49,15 +50,15 @@ EXPERIMENTAL_LOCALES = {
 
 
 FONTS = {
-    "Balinese": ["Noto Sans Balinese", "Noto Serif Balinese"],
-    "ZanabazarSquare": ["Noto Sans Zanabazar Square"],
-    "Tirhuta": ["Noto Sans Tirhuta"],
-    "Lao": ["Noto Sans Lao", "Noto Sans Lao Looped", "Noto Serif Lao"],
-    "Lao2": ["Noto Sans Lao", "Noto Sans Lao Looped", "Noto Serif Lao"],
-    "LaoPali": ["Noto Sans Lao Looped", "Noto Sans Lao", "Noto Serif Lao"],
-    "Mahajani": ["Noto Sans Mahajani"],
-    "Siddham": ["Noto Sans Siddham"],
-    "Khudawadi": ["Noto Sans Khudawadi"],
+    "Bali": ["Noto Sans Balinese", "Noto Serif Balinese"],
+    # "ZanabazarSquare": ["Noto Sans Zanabazar Square"],
+    # "Tirhuta": ["Noto Sans Tirhuta"],
+    "Laoo": ["Noto Sans Lao", "Noto Sans Lao Looped", "Noto Serif Lao"],
+    # "Lao2": ["Noto Sans Lao", "Noto Sans Lao Looped", "Noto Serif Lao"],
+    # "LaoPali": ["Noto Sans Lao Looped", "Noto Sans Lao", "Noto Serif Lao"],
+    # "Mahajani": ["Noto Sans Mahajani"],
+    # "Siddham": ["Noto Sans Siddham"],
+    # "Khudawadi": ["Noto Sans Khudawadi"],
 }
 
 
@@ -72,53 +73,54 @@ for locale_file in locale_files:
     locale = Path(locale_file).name
     wordlists[locale] = {}
     forms = []
-    # weights = []
     with open(locale_file) as datafile:
         for line in datafile.readlines():
             if not line:
                 continue
-            # try:
-            #     form, weight = line.strip().split("\t")
-            # except ValueError:
             form = line.strip()
-            # weight = 1
             scripts = get_script_of_word(form)
             if len(scripts) == 1:
-                script = scripts.pop()
-                unnormalized_script = script
-                script = script.replace("_", "")
-                if script not in GeneralMap.IndicScripts:
-                    script = unicodedata.property_value_aliases["script"][
-                        unnormalized_script
-                    ][0]
+                script = unicodedata.property_value_aliases["script"][scripts.pop()][0]
             else:
                 script = "Zyyy"
-            if script == "Syrc":
-                script = "Syre"
-            if script == "Mymr":
-                script = "Burmese"
-            if script == "Avst":
-                script = "Avestan"
             if script not in wordlists[locale]:
-                # wordlists[locale][script] = ([], [])
                 wordlists[locale][script] = []
             wordlists[locale][script].append(form)
-            # wordlists[locale][script][0].append(form)
-            # wordlists[locale][script][1].append(int(weight))
 
 script_map = {}
 for locale in wordlists:
     script_map[locale] = []
     total_entries = 0
     for script in wordlists[locale]:
-        # total_entries += len(wordlists[locale][script][0])
         total_entries += len(wordlists[locale][script])
     for script in wordlists[locale]:
-        # if len(wordlists[locale][script][0]) / total_entries > SCRIPT_THRESHOLD:
         if len(wordlists[locale][script]) / total_entries > SCRIPT_THRESHOLD:
             script_map[locale].append(script)
 app = Flask(__name__)
 CORS(app)
+
+with open("transliterators/InterIndic_Latin_Velthuis.txt") as file:
+    icu.Transliterator.registerInstance(
+        icu.Transliterator.createFromRules("InterIndic-Latin/Velthuis", file.read())
+    )
+
+with open("transliterators/Latin_InterIndic_Velthuis.txt") as file:
+    icu.Transliterator.registerInstance(
+        icu.Transliterator.createFromRules("Latin-InterIndic/Velthuis", file.read())
+    )
+
+
+@cache
+def get_transliterator(from_script, to_script):
+    if to_script == "Velthuis":
+        return icu.Transliterator.createInstance(
+            f"{from_script}-InterIndic; InterIndic-Latin/Velthuis"
+        )
+    elif from_script == "Velthuis":
+        return icu.Transliterator.createInstance(
+            f"Latin-InterIndic/Velthuis; InterIndic-{to_script}"
+        )
+    return icu.Transliterator.createInstance(f"{from_script}-{to_script}")
 
 
 def get_wordlist_direction(wordlist):
@@ -152,9 +154,8 @@ def serve_transl():
     to_script = request.json["to"]
     text = request.json["text"]
     if text:
-        return jsonify(
-            transliterate.process(from_script, to_script, text, nativize=False)
-        )
+        transliterator = get_transliterator(from_script, to_script)
+        return jsonify(transliterator.transliterate(text))
     else:
         return jsonify("")
 
@@ -162,17 +163,38 @@ def serve_transl():
 @app.route("/scripts")
 def serve_scripts():
     return jsonify(
-        list(
-            set(
-                GeneralMap.LatinScripts
-                + GeneralMap.MainIndic
-                + GeneralMap.EastIndic
-                + GeneralMap.NonIndic
-                + GeneralMap.SemiticScripts
-                + GeneralMap.Roman
-                + list(GeneralMap.semiticISO.keys())
-            )
-        )
+        [
+            "Arab",
+            "Armn",
+            "Beng",
+            "Bopo",
+            "Mymr",
+            "Cans",
+            "Cyrl",
+            "Deva",
+            "Ethi",
+            "Geor",
+            "Grek",
+            "Gujr",
+            "Guru",
+            "Hang",
+            "Hani",
+            "Hebr",
+            "Hira",
+            "Jamo",
+            "Kana",
+            "Knda",
+            "Latn",
+            "Mlym",
+            "Orya",
+            "Sarb",
+            "Syrc",
+            "Taml",
+            "Telu",
+            "Thaa",
+            "Thai",
+            "Velthuis",
+        ]
     )
 
 
@@ -200,23 +222,20 @@ def serve_wordlist():
     elif request.json["withIndepVowels"] == 2:
         positive_filter.update(INDEP_VOWEL_PROPS)
     wordlist = wordlists[lang][script]
-    # randomized_wordlist = random.choices(wordlist[0], wordlist[1], k=500)
     randomized_wordlist = random.choices(wordlist, k=500)
     if script == from_script:
         from_wordlist = randomized_wordlist
     else:
+        transliterator = get_transliterator(script, from_script)
         from_wordlist = [
-            transliterate.process(script, from_script, word, nativize=False)
-            for word in randomized_wordlist
+            transliterator.transliterate(word) for word in randomized_wordlist
         ]
     if positive_filter:
         from_wordlist = filter_wordlist(from_wordlist, positive_filter)
     if negative_filter:
         from_wordlist = filter_wordlist(from_wordlist, negative_filter, True)
-    to_wordlist = [
-        transliterate.process(from_script, to_script, word, nativize=False)
-        for word in from_wordlist
-    ]
+    transliterator = get_transliterator(from_script, to_script)
+    to_wordlist = [transliterator.transliterate(word) for word in from_wordlist]
     from_dir = get_wordlist_direction(from_wordlist)
     to_dir = get_wordlist_direction(to_wordlist)
     from_fonts = FONTS.get(from_script, [])
